@@ -25,12 +25,12 @@ import pypyodbc as odbc
 
 class AppModel:
     def __init__(self):
-
-        server = "quakevigilant.database.windows.net"
-        database = "db_quakevigilantapp"
-        username = "ilham.gym1103"
-        password = "6025694Gym"
-        driver = '{ODBC Driver 18 for SQL Server}'
+        
+        server = st.secrets["server"]
+        database = st.secrets["database"]
+        username = st.secrets["username"]
+        password = st.secrets["password"]
+        driver = st.secrets["driver"]
         connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};'
         self.earthquake_data = None
         self.mydb = odbc.connect(
