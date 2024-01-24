@@ -5,7 +5,7 @@ import hydralit_components as hc
 from st_aggrid import AgGrid, GridOptionsBuilder, DataReturnMode, AgGridTheme
 import pandas as pd
 from pandas.api.types import is_bool_dtype, is_numeric_dtype
-import mysql.connector
+
 import datetime
 from datetime import date, timedelta
 import numpy as np
