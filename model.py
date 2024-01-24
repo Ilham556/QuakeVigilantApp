@@ -31,7 +31,7 @@ class AppModel:
         username = st.secrets["username"]
         password = st.secrets["password"]
         driver = st.secrets["driver"]
-        connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=No;TrustServerCertificate=No;'
+        connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};Authentication=ActiveDirectoryMsi;Encrypt=yes;'
         self.earthquake_data = None
         self.mydb = odbc.connect(
             connection_string
