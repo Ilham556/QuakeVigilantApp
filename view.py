@@ -299,7 +299,7 @@ class AppView:
                     'label': "Earthquake Prone Points",
                     'submenu': [
                         {'id': 'heatmap', 'icon': "fa fa-thermometer-full", 'label': "Heatmap"},
-                        {'id': 'register', 'icon': "fa fa-chart-bar", 'label': "Graph"}
+                        {'id': 'graph', 'icon': "fa fa-chart-bar", 'label': "Graph"}
                     ]
                 },
                 {
@@ -747,7 +747,7 @@ class AppView:
     
     def asguestview(self):
         self.menubar('guest')
-
+        st.write(str(self.menu_id))        
         if str(self.menu_id) == "Home":
             self.homeview()
         elif str(self.menu_id) == "heatmap":
