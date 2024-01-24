@@ -169,17 +169,3 @@ class AppController:
         self.model.deletedata_user(ids)
         st.experimental_rerun()
     
-    
-
-    
-    
-    
-
-    
-
-    
-    
-        
-
-
-
