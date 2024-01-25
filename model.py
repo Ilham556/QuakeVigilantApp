@@ -5,7 +5,7 @@ import hydralit_components as hc
 from st_aggrid import AgGrid, GridOptionsBuilder, DataReturnMode, AgGridTheme
 import pandas as pd
 from pandas.api.types import is_bool_dtype, is_numeric_dtype
-
+import mysql.connector
 import datetime
 from datetime import date, timedelta
 import numpy as np
@@ -20,31 +20,31 @@ import folium
 from streamlit_folium import st_folium
 from streamlit_folium import folium_static
 from datetime import datetime as dt
-import pypyodbc as odbc
+
 
 
 class AppModel:
     def __init__(self):
-        
-        server = st.secrets["server"]
-        database = st.secrets["database"]
-        username = st.secrets["username"]
-        password = st.secrets["password"]
-        driver = st.secrets["driver"]
-        connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30'
+        db_secrets = st.secrets["mysql"]
+
         self.earthquake_data = None
-        self.mydb = odbc.connect(
-            connection_string
-        )
+        self.mydb = mysql.connector.connect(
+                port=db_secrets["port"],
+                user=db_secrets["user"],
+                password=db_secrets["password"],
+                host=db_secrets["host"],
+                database=db_secrets["database"]
+            )
         self.query = "SELECT * FROM earthquakedata"
         self.df_heatmap = pd.read_sql(self.query, self.mydb)
+
         self.query_user = "SELECT * FROM users"
         self.df_user = pd.read_sql(self.query_user, self.mydb)
+
         self.query_artikel = """SELECT artikel.id, artikel.link_gambar, artikel.judul, artikel.konten, artikel.link_vidio, artikel.tanggal_publikasi, users.name AS penulis
 FROM artikel 
 JOIN users ON artikel.penulis = users.id;"""
         self.df_artikel = pd.read_sql(self.query_artikel, self.mydb)
-
 
     def api_usgs(self):
         url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
@@ -154,10 +154,11 @@ JOIN users ON artikel.penulis = users.id"""
     
     def login(self, email, password):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "SELECT * FROM users WHERE email = ? AND password = ?"
-                cursor.execute(query, (email, password))
-                result = cursor.fetchone()
+            cursor = self.mydb.cursor(buffered=True)
+            query = "SELECT * FROM users WHERE email = %s AND password = %s"
+            cursor.execute(query, (email, password))
+            self.mydb.commit()
+            result = cursor.fetchone()
             
 
             if result:
@@ -181,13 +182,13 @@ JOIN users ON artikel.penulis = users.id"""
     
     def update_myuser(self, name, email, password, alamat, updated_at, id):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "UPDATE users SET name = ?, email = ?, password = ?, alamat = ?, updated_at = ? WHERE id = ?"
-                cursor.execute(query, (name, email, password, alamat, updated_at, id))
-                self.mydb.commit()
-                self.query = "SELECT * FROM users"
-                self.df_user = pd.read_sql(self.query, self.mydb)
-                st.info('Data Successfully Update.') 
+            cursor = self.mydb.cursor()
+            query = "UPDATE users SET name = %s, email = %s, password = %s, alamat = %s, updated_at = %s WHERE id = %s"
+            cursor.execute(query, (name, email, password, alamat, updated_at, id))
+            self.mydb.commit()
+            self.query = "SELECT * FROM users"
+            self.df_user = pd.read_sql(self.query, self.mydb)
+            st.info('Data Successfully Update.') 
             
         except Exception as e:
             st.error(f'Error: {e}')
@@ -195,24 +196,26 @@ JOIN users ON artikel.penulis = users.id"""
 
     def register_myuser(self, name, email, password, alamat, created_at, updated_at, is_admin):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "INSERT INTO users (name, email, password, alamat, created_at, updated_at, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)"
-                cursor.execute(query, (name, email, password,alamat, created_at, updated_at, is_admin))
-                self.mydb.commit()
-                self.query = "SELECT * FROM users"
-                st.info('Data Successfully Added')
+            # Tambahkan data baru ke database
+            cursor = self.mydb.cursor()
+            query = "INSERT INTO users (name, email, password, alamat, created_at, updated_at, is_admin) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (name, email, password,alamat, created_at, updated_at, is_admin))
+            self.mydb.commit()
+            self.query = "SELECT * FROM users"
+            st.info('Data Successfully Added')
         except Exception as e:
             st.error(f'Error: {e}')
     
     def createdata_heatmap(self, country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "INSERT INTO earthquakedata (country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                cursor.execute(query, (country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date))
-                self.mydb.commit()
-                self.query = "SELECT * FROM earthquakedata"
-                self.df_heatmap = pd.read_sql(self.query, self.mydb)
-                st.info('Data Successfully Added') 
+            # Tambahkan data baru ke database
+            cursor = self.mydb.cursor()
+            query = "INSERT INTO earthquakedata (country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date))
+            self.mydb.commit()
+            self.query = "SELECT * FROM earthquakedata"
+            self.df_heatmap = pd.read_sql(self.query, self.mydb)
+            st.info('Data Successfully Added') 
         except Exception as e:
             st.error(f'Error: {e}')
 
@@ -220,13 +223,13 @@ JOIN users ON artikel.penulis = users.id"""
     
     def updatedata_heatmap(self, country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date, ids):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "UPDATE earthquakedata SET country = ?, reference_point = ?, state = ?, status = ?, tsunami = ?, magnitudo = ?, significance = ?, data_type = ?, longitude = ?, latitude = ?, depth = ?, date = ? WHERE id = ?;"
-                cursor.execute(query,(country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date, ids))
-                self.mydb.commit()
-                self.query = "SELECT * FROM earthquakedata"
-                self.df_heatmap = pd.read_sql(self.query, self.mydb)
-                st.info('Data Successfully Update') 
+            cursor = self.mydb.cursor()
+            query = "UPDATE earthquakedata SET country = %s, reference_point = %s, state = %s, status = %s, tsunami = %s, magnitudo = %s, significance = %s, data_type = %s, longitude = %s, latitude = %s, depth = %s, date = %s WHERE id = %s;"
+            cursor.execute(query,(country, Reference_Point, state, status, tsunami, magnitudo, significance, data_type, longitude, latitude, depth, date, ids))
+            self.mydb.commit()
+            self.query = "SELECT * FROM earthquakedata"
+            self.df_heatmap = pd.read_sql(self.query, self.mydb)
+            st.info('Data Successfully Update') 
         except Exception as e:
             st.error(f'Error: {e}')
         return self.df_heatmap
@@ -235,112 +238,112 @@ JOIN users ON artikel.penulis = users.id"""
     def deletedata_heatmap(self, ids):
         if len(ids) == 1:
             try:
-                with self.mydb.cursor() as cursor:
-                    query = "DELETE FROM earthquakedata WHERE id = ?"
-                    cursor.execute(query, ids)
-                    self.mydb.commit()
-                    self.query = "SELECT * FROM earthquakedata"
-                    self.df_heatmap = pd.read_sql(self.query, self.mydb)
+                cursor = self.mydb.cursor()
+                query = "DELETE FROM earthquakedata WHERE id = %s"
+                cursor.execute(query, ids)
+                self.mydb.commit()
+                self.query = "SELECT * FROM earthquakedata"
+                self.df_heatmap = pd.read_sql(self.query, self.mydb)
             except Exception as e:
                 st.error(f'Error: {e}')
             return self.df_heatmap
         else:
             try:
-                with self.mydb.cursor() as cursor:
-                    placeholders = ','.join(['?'] * len(ids))
-                    query = f"DELETE FROM earthquakedata WHERE id IN ({placeholders})"
-                    cursor.execute(query, tuple(ids))
-                    self.mydb.commit()
-                    self.query = "SELECT * FROM earthquakedata"
-                    self.df_heatmap = pd.read_sql(self.query, self.mydb)
-                    st.info('Data Successfully Deleted') 
+                cursor = self.mydb.cursor()
+                placeholders = ','.join(['%s'] * len(ids))
+                query = f"DELETE FROM earthquakedata WHERE id IN ({placeholders})"
+                cursor.execute(query, tuple(ids))
+                self.mydb.commit()
+                self.query = "SELECT * FROM earthquakedata"
+                self.df_heatmap = pd.read_sql(self.query, self.mydb)
+                st.info('Data Successfully Deleted') 
             except Exception as e:
                 st.error(f'Error: {e}')
             return self.df_heatmap
     
     def createdata_article(self, link_g, judul, kontent, link_v, tanggal_p, penulis):
         try:
-            with self.mydb.cursor() as cursor:
-                cursor = self.mydb.cursor()
-                query = "INSERT INTO artikel (link_gambar, judul, konten, link_vidio, tanggal_publikasi, penulis) VALUES (?, ?, ?, ?, ?, ?)"
-                cursor.execute(query, (link_g, judul, kontent, link_v, tanggal_p, penulis))
-                self.mydb.commit()
-                st.info('Data Successfully Added') 
+            # Tambahkan data baru ke database
+            cursor = self.mydb.cursor()
+            query = "INSERT INTO artikel (link_gambar, judul, konten, link_vidio, tanggal_publikasi, penulis) VALUES (%s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (link_g, judul, kontent, link_v, tanggal_p, penulis))
+            self.mydb.commit()
+            st.info('Data Successfully Added') 
         except Exception as e:
             st.error(f'Error: {e}')
     
     def updatedata_article(self, link_g, judul, konten, link_v, publikasi, ids):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "UPDATE artikel SET link_gambar = ?, judul = ?, konten = ?, link_vidio = ?, tanggal_publikasi = ? WHERE id = ?"
-                cursor.execute(query, (link_g, judul, konten, link_v, publikasi, ids))
-                self.mydb.commit()
-                st.info('Data Successfully Updated.') 
+            cursor = self.mydb.cursor()
+            query = "UPDATE artikel SET link_gambar = %s, judul = %s, konten = %s, link_vidio = %s, tanggal_publikasi = %s WHERE id = %s"
+            cursor.execute(query, (link_g, judul, konten, link_v, publikasi, ids))
+            self.mydb.commit()
+            st.info('Data Successfully Updated.') 
         except Exception as e:
             st.error(f'Error: {e}')
     
     def deletedata_article(self, ids):
         if len(ids) == 1:
             try:
-                with self.mydb.cursor() as cursor:
-                    query = "DELETE FROM artikel WHERE id = ?"
-                    cursor.execute(query, ids)
-                    self.mydb.commit()
-                    st.info('Data Successfully Deleted') 
+                cursor = self.mydb.cursor()
+                query = "DELETE FROM artikel WHERE id = %s"
+                cursor.execute(query, ids)
+                self.mydb.commit()
+                st.info('Data Successfully Deleted') 
             except Exception as e:
                 st.error(f'Error: {e}')
         else:
             try:
-                with self.mydb.cursor() as cursor:
-                    placeholders = ','.join(['?'] * len(ids))
-                    query = f"DELETE FROM artikel WHERE id IN ({placeholders})"
-                    cursor.execute(query, tuple(ids))
-                    self.mydb.commit()
-                    st.info('Data Successfully Deleted') 
+                cursor = self.mydb.cursor()
+                placeholders = ','.join(['%s'] * len(ids))
+                query = f"DELETE FROM artikel WHERE id IN ({placeholders})"
+                cursor.execute(query, tuple(ids))
+                self.mydb.commit()
+                st.info('Data Successfully Deleted') 
             except Exception as e:
                 st.error(f'Error: {e}')
     
     def createdata_user(self, name, email, password, alamat, created_at, updated_at, is_admin):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "INSERT INTO users (name, email, password, alamat, created_at, updated_at, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)"
-                cursor.execute(query, (name, email, password,alamat, created_at, updated_at, is_admin))
-                self.mydb.commit()
-                st.info('Data Successfully Added') 
+            # Tambahkan data baru ke database
+            cursor = self.mydb.cursor()
+            query = "INSERT INTO users (name, email, password, alamat, created_at, updated_at, is_admin) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (name, email, password,alamat, created_at, updated_at, is_admin))
+            self.mydb.commit()
+            st.info('Data Successfully Added') 
         except Exception as e:
             st.error(f'Error: {e}')
     
     def updatedata_user(self, name, email, password, alamat, updated_at, is_admin, ids):
         try:
-            with self.mydb.cursor() as cursor:
-                query = "UPDATE users SET name = ?, email = ?, password = ?, alamat = ?, updated_at = ?, is_admin = ? WHERE id = ?"
-                cursor.execute(query, (name, email, password, alamat, updated_at, is_admin, ids))
-                self.mydb.commit()
-                st.info('Data Successfully Updated.') 
+            cursor = self.mydb.cursor()
+            query = "UPDATE users SET name = %s, email = %s, password = %s, alamat = %s, updated_at = %s, is_admin = %s WHERE id = %s"
+            cursor.execute(query, (name, email, password, alamat, updated_at, is_admin, ids))
+            self.mydb.commit()
+            st.info('Data Successfully Updated.') 
         except Exception as e:
             st.error(f'Error: {e}')
     
     def deletedata_user(self,ids):
         if len(ids) == 1:
             try:
-                with self.mydb.cursor() as cursor:
-                    query = "DELETE FROM users WHERE id = ?"
-                    cursor.execute(query, ids)
-                    self.mydb.commit()
-                    st.info('Data Successfully Deleted') 
+                cursor = self.mydb.cursor()
+                query = "DELETE FROM users WHERE id = %s"
+                cursor.execute(query, ids)
+                self.mydb.commit()
+                st.info('Data Successfully Deleted') 
             except Exception as e:
                 st.error(f'Error: {e}')
         else:
             try:
-                with self.mydb.cursor() as cursor:
-                    placeholders = ','.join(['?'] * len(ids))
-                    query = f"DELETE FROM users WHERE id IN ({placeholders})"
-                    cursor.execute(query, ids)
-                    self.mydb.commit()
-                    st.info('Data Successfully Deleted') 
+                cursor = self.mydb.cursor()
+                placeholders = ','.join(['%s'] * len(ids))
+                query = f"DELETE FROM users WHERE id IN ({placeholders})"
+                cursor.execute(query, ids)
+                self.mydb.commit()
+                st.info('Data Successfully Deleted') 
             except Exception as e:
                 st.error(f'Error: {e}')
-
     
     
 
