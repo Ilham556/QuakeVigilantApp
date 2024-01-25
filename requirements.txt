@@ -12,4 +12,3 @@ streamlit-aggrid==0.3.4.post3
 streamlit_folium==0.15.1
 streamlit_option_menu==0.3.6
 
-mysqlclient==2.2.1
