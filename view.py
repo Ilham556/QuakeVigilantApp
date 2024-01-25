@@ -299,7 +299,7 @@ class AppView:
                     'label': "Earthquake Prone Points",
                     'submenu': [
                         {'id': 'heatmap', 'icon': "fa fa-thermometer-full", 'label': "Heatmap"},
-                        {'id': 'register', 'icon': "fa fa-chart-bar", 'label': "Graph"}
+                        {'id': 'graph', 'icon': "fa fa-chart-bar", 'label': "Graph"}
                     ]
                 },
                 {

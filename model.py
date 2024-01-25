@@ -20,19 +20,27 @@ import folium
 from streamlit_folium import st_folium
 from streamlit_folium import folium_static
 from datetime import datetime as dt
+import pathlib
 
 
 
 class AppModel:
     def __init__(self):
+        def get_ssl_cert():
+            current_path = pathlib.Path(__file__).parent.parent
+            return str(current_path/"DigiCertGlobalRootG2.crt.pem")
         db_secrets = st.secrets["mysql"]
+
         self.earthquake_data = None
         self.mydb = mysql.connector.connect(
-                host=st.secrets["mysql"]["host"],
-                port=st.secrets["mysql"]["port"],
-                user=st.secrets["mysql"]["user"],
-                password=st.secrets["mysql"]["password"],
-                database=st.secrets["mysql"]["database"]
+                user=db_secrets["user"],
+                password=db_secrets["password"],
+                host=db_secrets["host"],
+                port=3306,
+                database='quakevigilantdb',
+                client_flags = [mysql.connector.ClientFlag.SSL],
+                ssl_ca = get_ssl_cert(),
+                ssl_disabled=False                
             )
         self.query = "SELECT * FROM earthquakedata"
         self.df_heatmap = pd.read_sql(self.query, self.mydb)
@@ -44,6 +52,9 @@ class AppModel:
 FROM artikel 
 JOIN users ON artikel.penulis = users.id;"""
         self.df_artikel = pd.read_sql(self.query_artikel, self.mydb)
+    
+    
+
 
     def api_usgs(self):
         url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
